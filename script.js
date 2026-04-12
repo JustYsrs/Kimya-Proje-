@@ -3,23 +3,17 @@
    JavaScript Dosyası - Oyun Mantığı (42 Soru Versiyonu + Firebase)
    ============================================================ */
 
-// ========== FIREBASE YAPILANDIRMASI ==========
-// Firebase Realtime Database (Spark Planı - Ücretsiz)
-// CDN Compat versiyonu (global firebase nesnesi)
+// ========== FIREBASE REST API YAPILANDIRMASı ==========
+// Firebase Realtime Database REST API (SDK yok, sadece HTTP)
+// https://firebase.google.com/docs/database/rest/start
 
 const firebaseConfig = {
     apiKey: "AIzaSyAYbW4JXglp5nY41Vr6FI0et90UiaGxOtw",
-    authDomain: "kimya-proje-d2cc9.firebaseapp.com",
-    databaseURL: "https://kimya-proje-d2cc9-default-rtdb.firebaseio.com",
-    projectId: "kimya-proje-d2cc9",
-    storageBucket: "kimya-proje-d2cc9.firebasestorage.app",
-    messagingSenderId: "775750654660",
-    appId: "1:775750654660:web:dbfd5b5021954ddd468791"
+    databaseURL: "https://kimya-proje-d2cc9-default-rtdb.firebaseio.com"
 };
 
-// Firebase başlat (CDN Compat tarafından sağlanan global firebase nesnesi)
-firebase.initializeApp(firebaseConfig);
-const database = firebase.database();
+// Sıralama tablosu URL'si (REST API endpoint)
+const leaderboardURL = `${firebaseConfig.databaseURL}/leaderboard.json?key=${firebaseConfig.apiKey}`;
 
 // ========== 42 OYUN SORUSU - KİMYA GÜVENLİĞİ ==========
 // İlk 41 soru (shuffle yapılacak)
@@ -233,7 +227,24 @@ function handleAnswerClick(button, answer, type) {
         if (isCorrect) {
             if (gameState.equipmentSelected) checkAnswers();
         } else {
-            handleWrongAnswer(type);
+            // Yanlış piktogram - ceza ve seçim reset
+            gameState.wrongAnswers++;
+            showToast('❌ YANLIŞ CEVAP! -1 Can, -5 Saniye', 'error');
+            gameState.hearts--;
+            gameState.timeRemaining = Math.max(0, gameState.timeRemaining - 5);
+            triggerAlarmEffect();
+            updateHUD();
+            
+            // Seçimi geri al - oyuncu başka seçenek deneyebilsin
+            setTimeout(() => {
+                button.classList.remove('selected');
+                gameState.pictogramSelected = false;
+                gameState.selectedPictogram = null;
+            }, 600);
+            
+            if (gameState.hearts <= 0 || gameState.timeRemaining <= 0) {
+                endGame(false);
+            }
         }
     } else if (type === 'equipment') {
         if (gameState.equipmentSelected) return;
@@ -245,13 +256,30 @@ function handleAnswerClick(button, answer, type) {
         if (isCorrect) {
             if (gameState.pictogramSelected) checkAnswers();
         } else {
-            handleWrongAnswer(type);
+            // Yanlış equipment - ceza ve seçim reset
+            gameState.wrongAnswers++;
+            showToast('❌ YANLIŞ CEVAP! -1 Can, -5 Saniye', 'error');
+            gameState.hearts--;
+            gameState.timeRemaining = Math.max(0, gameState.timeRemaining - 5);
+            triggerAlarmEffect();
+            updateHUD();
+            
+            // Seçimi geri al - oyuncu başka seçenek deneyebilsin
+            setTimeout(() => {
+                button.classList.remove('selected');
+                gameState.equipmentSelected = false;
+                gameState.selectedEquipment = null;
+            }, 600);
+            
+            if (gameState.hearts <= 0 || gameState.timeRemaining <= 0) {
+                endGame(false);
+            }
         }
     }
 }
 
 function checkAnswers() {
-    const question = gameQuestions[gameState.currentRoomIndex];
+    const question = gameState.activeQuestions[gameState.currentRoomIndex];
 
     const pictogramCorrect = gameState.selectedPictogram === question.dogruPiktogram;
     const equipmentCorrect = gameState.selectedEquipment === question.dogruEkipman;
@@ -286,7 +314,7 @@ function handleWrongAnswer(type) {
         setTimeout(() => {
             gameState.pictogramSelected = false;
             gameState.equipmentSelected = false;
-            gameState.selectedPiktogram = null;
+            gameState.selectedPictogram = null;
             gameState.selectedEquipment = null;
             loadQuestion();
         }, 600);
@@ -487,51 +515,60 @@ function saveScore(playerName, completionTime, correctCount, wrongCount) {
         date: new Date().toLocaleString('tr-TR')
     };
 
-    // Firebase'e yazı
-    const scoresRef = database.ref('leaderboard');
-    
-    scoresRef.once('value').then((snapshot) => {
-        let scores = snapshot.val() || [];
-        
-        // Array değilse boş array
-        if (!Array.isArray(scores)) {
-            scores = [];
-        }
-        
-        scores.push(newScore);
-        scores.sort((a, b) => a.time - b.time);
-        
-        // En iyi 10 skoru tut (Spark Plan optimizasyonu)
-        if (scores.length > 10) {
-            scores = scores.slice(0, 10);
-        }
-        
-        return scoresRef.set(scores);
-    }).then(() => {
-        showToast('🏆 Skorun leaderboard\'a eklendi!', 'success');
-        displayLeaderboard();
-    }).catch((error) => {
-        console.error('Firebase yazma hatası:', error);
-        showToast('⚠️ Skor kaydedilemedi. Internet bağlantısını kontrol edin.', 'error');
-    });
+    // Firebase REST API'ye yazı
+    fetch(leaderboardURL)
+        .then(response => response.json())
+        .then(data => {
+            let scores = data || {};
+            
+            // Object olarak gelse array'e dönüştür
+            if (!Array.isArray(scores)) {
+                scores = Object.values(scores).filter(s => s && typeof s === 'object');
+            }
+            
+            scores.push(newScore);
+            scores.sort((a, b) => a.time - b.time);
+            
+            // En iyi 10 skoru tut (Spark Plan optimizasyonu)
+            if (scores.length > 10) {
+                scores = scores.slice(0, 10);
+            }
+            
+            // Firebase REST API'ye PUT yap
+            return fetch(leaderboardURL, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(scores)
+            });
+        })
+        .then(() => {
+            showToast('🏆 Skorun leaderboard\'a eklendi!', 'success');
+            displayLeaderboard();
+        })
+        .catch((error) => {
+            console.error('Firebase REST yazma hatası:', error);
+            showToast('⚠️ Skor kaydedilemedi. İnternet bağlantısını kontrol edin.', 'error');
+        });
 }
 
 function loadLeaderboard() {
     return new Promise((resolve) => {
-        const scoresRef = database.ref('leaderboard');
-        
-        scoresRef.once('value').then((snapshot) => {
-            const scores = snapshot.val() || [];
-            
-            if (!Array.isArray(scores)) {
-                resolve([]);
-            } else {
+        fetch(leaderboardURL)
+            .then(response => response.json())
+            .then(data => {
+                let scores = data || {};
+                
+                // Object olarak gelse array'e dönüştür
+                if (!Array.isArray(scores)) {
+                    scores = Object.values(scores).filter(s => s && typeof s === 'object');
+                }
+                
                 resolve(scores.sort((a, b) => a.time - b.time));
-            }
-        }).catch((error) => {
-            console.error('Firebase okuma hatası:', error);
-            resolve([]);
-        });
+            })
+            .catch((error) => {
+                console.error('Firebase REST okuma hatası:', error);
+                resolve([]);
+            });
     });
 }
 
@@ -556,6 +593,11 @@ function displayLeaderboard() {
             `;
             displays.leaderboardBody.appendChild(row);
         });
+        
+        showToast('✅ Sıralama tablosu güncellendi!', 'info');
+    }).catch((error) => {
+        console.error('Leaderboard yükleme hatası:', error);
+        showToast('⚠️ Sıralama tablosu yüklenemedi.', 'error');
     });
 }
 
