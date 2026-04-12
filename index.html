@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Güvenlik Protokolü: Tesis 42</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Başlangıç Ekranı + Sıralama Tablosu -->
+    <div id="startScreen" class="screen active">
+        <div class="terminal-box">
+            <div class="terminal-header">
+                <span class="terminal-title">🏭 TESIS 42 - ACİL DURUM SİSTEMİ</span>
+            </div>
+            <div class="terminal-content">
+                <div class="ascii-art">
+                    ╔════════════════════════════════════════╗
+                    ║    KİMYA TESİSİ KAÇIŞ OYUNU           ║
+                    ║    "Güvenlik Protokolü: Tesis 42"     ║
+                    ╚════════════════════════════════════════╝
+                </div>
+                
+                <div class="intro-text">
+                    <p>⚠️ UYARI: Tesis 42'de bir kimyasal kaza meydana gelmiştir!</p>
+                    <p>Siz kaza sırasında tesiste mahsur kalmış bir stajyersiniz.</p>
+                    <p>Çıkışa ulaşmak için 42 odadan geçmelisiniz.</p>
+                    <br>
+                    <p>Her odada bir kimyasal tehlike ile karşılaşacaksınız.</p>
+                    <p>Doğru GÜVENLİK PİKTOGRAMINI (uyarı işaretini) ve</p>
+                    <p>uygun GÜVENLİK EKİPMANINI seçerek ilerleyin!</p>
+                    <br>
+                    <p><strong>Oyun Bilgisi:</strong></p>
+                    <p>🧡 Başlangıç Canı: 3 | ⏱️ Süre: 180 saniye (42 soru)</p>
+                    <p>✅ Doğru cevap = Sonraki oda</p>
+                    <p>❌ Yanlış cevap = -1 Can, -5 saniye</p>
+                    <p>🎯 <strong>JOKERLER (Her Oyunda 1 kez):</strong></p>
+                    <p>🎪 %50 Jokeri - 2 yanlış seçeneği siler</p>
+                    <p>⏱️ Zaman Dondurucu - 10 saniye geri sayımı durdurur</p>
+                </div>
+
+                <button id="startBtn" class="terminal-button">OYUNU BAŞLAT [ENTER]</button>
+
+                <!-- Sıralama Tablosu / High Scores -->
+                <div class="leaderboard-section">
+                    <div class="leaderboard-title">🏆 EN İYİ PERFORMANSLAR</div>
+                    <table id="leaderboardTable" class="leaderboard-table">
+                        <thead>
+                            <tr>
+                                <th>🥇 Sıra</th>
+                                <th>👤 Oyuncu</th>
+                                <th>⏱️ Süre</th>
+                                <th>✅ Doğru</th>
+                                <th>❌ Yanlış</th>
+                                <th>📊 Başarı</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboardBody">
+                            <!-- Sıralama verileri buraya yüklenecek -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ana Oyun Ekranı -->
+    <div id="gameScreen" class="screen">
+        <div class="game-container">
+            <!-- İlerleme Çubuğu (Progress Bar) -->
+            <div class="progress-section">
+                <div class="progress-label">İLERLEME:</div>
+                <div class="progress-bar-container">
+                    <div id="progressBar" class="progress-bar"></div>
+                </div>
+            </div>
+
+            <!-- HUD (Ekran Üst Bilgisi) -->
+            <div class="hud">
+                <div class="hud-item">
+                    <span class="label">CANLAR:</span>
+                    <span id="heartsDisplay" class="hearts">❤️ ❤️ ❤️</span>
+                </div>
+                <div class="hud-item center">
+                    <span class="label">SORU:</span>
+                    <span id="questionCountDisplay" class="question-count">1/42</span>
+                </div>
+                <div class="hud-item">
+                    <span class="label">KALAN ZAMAN:</span>
+                    <span id="timerDisplay" class="timer">180s</span>
+                </div>
+            </div>
+
+            <!-- Joker Butonları -->
+            <div class="lifelines-section">
+                <div class="lifeline-btn-container">
+                    <button id="fiftyBtn" class="lifeline-btn" data-lifeline="fifty">
+                        <span class="lifeline-icon">🎪</span>
+                        <span class="lifeline-text">%50</span>
+                    </button>
+                    <button id="freezeBtn" class="lifeline-btn" data-lifeline="freeze">
+                        <span class="lifeline-icon">⏱️</span>
+                        <span class="lifeline-text">DONDUR</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Soru Kutusı -->
+            <div class="question-box">
+                <div class="question-header">
+                    📍 ODAYA GİRDİNİZ - TEHLİKE UYARISI
+                </div>
+                <div id="questionText" class="question-text">
+                    <!-- Soru metni buraya gelecek -->
+                </div>
+                <div class="emoji-display">
+                    <span id="hazardEmoji" class="large-emoji">🧪</span>
+                </div>
+            </div>
+
+            <!-- Cevap Seçenekleri - Piktogramlar -->
+            <div class="answers-section">
+                <div class="section-title">🔴 GÜVENLİK PİKTOGRAMINI SEÇİN:</div>
+                <div id="pictogramContainer" class="answer-buttons pictogram-buttons">
+                    <!-- Butonlar dinamik olarak oluşturulacak -->
+                </div>
+            </div>
+
+            <!-- Cevap Seçenekleri - Ekipmanlar -->
+            <div class="answers-section">
+                <div class="section-title">🟡 KORUYUCU EKİPMANI SEÇİN:</div>
+                <div id="equipmentContainer" class="answer-buttons equipment-buttons">
+                    <!-- Butonlar dinamik olarak oluşturulacak -->
+                </div>
+            </div>
+
+            <!-- Kontrol Butonları -->
+            <div class="control-buttons">
+                <button id="helpBtn" class="btn-secondary">? YARDIM</button>
+                <button id="resetBtn" class="btn-secondary">↻ YENİDEN BAŞLA</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Oyun Bitti Ekranı -->
+    <div id="gameOverScreen" class="screen">
+        <div class="terminal-box">
+            <div class="terminal-header">
+                <span class="terminal-title">⚠️ SISTEM KAPANDI</span>
+            </div>
+            <div class="terminal-content">
+                <div id="gameOverMessage" class="game-over-message">
+                    <!-- Mesaj dinamik olarak oluşturulacak -->
+                </div>
+
+                <div class="stats-box">
+                    <p>📊 <strong>OYUN İSTATİSTİKLERİ:</strong></p>
+                    <p>Tamamlanan Sorular: <span id="completedQuestions">0</span>/42</p>
+                    <p>Doğru Cevaplar: <span id="correctAnswers">0</span></p>
+                    <p>Yanlış Cevaplar: <span id="wrongAnswers">0</span></p>
+                    <p>Geçen Zaman: <span id="elapsedTime">0</span>s</p>
+                    <p>Başarı Oranı: <span id="successRate">0</span>%</p>
+                </div>
+
+                <!-- İsim Gir Formu -->
+                <div id="nameInputForm" class="name-input-form" style="display: none;">
+                    <p style="color: #00ff00; margin-bottom: 15px; font-weight: bold;">🏅 Liderlik tablosuna adını kaydet!</p>
+                    <div class="name-input-container">
+                        <input 
+                            type="text" 
+                            id="playerNameInput" 
+                            class="player-name-input" 
+                            placeholder="Oyuncu Adın..." 
+                            maxlength="20"
+                        >
+                        <button id="submitNameBtn" class="btn-submit-name">KAYDET</button>
+                    </div>
+                </div>
+
+                <button id="restartBtn" class="terminal-button">MENU'YE DÖN [ENTER]</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Yardım Modal -->
+    <div id="helpModal" class="modal">
+        <div class="modal-content">
+            <button id="closeHelpBtn" class="close-btn">&times;</button>
+            <h2>📖 GÜVENLİK PİKTOGRAMLARI REHBERI</h2>
+            <div class="help-grid">
+                <div class="help-item">
+                    <strong>🔥 Yanıcı</strong><br>
+                    Yangın tehlikesi olan maddeleri gösterir.
+                </div>
+                <div class="help-item">
+                    <strong>☠️ Toksik/Zehirli</strong><br>
+                    İnjeksiyon, solunumu veya emilimi yoluyla ölüme neden olabilir.
+                </div>
+                <div class="help-item">
+                    <strong>⚛️ Radyoaktif</strong><br>
+                    Radyasyon yayar, kanser ve genetik hasara neden olabilir.
+                </div>
+                <div class="help-item">
+                    <strong>🧪 Korozif/Aşındırıcı</strong><br>
+                    Metal ve cilt dokularını aşındırır.
+                </div>
+                <div class="help-item">
+                    <strong>💥 Patlayıcı</strong><br>
+                    Uyarı olmaksızın patlamaya neden olabilir.
+                </div>
+                <div class="help-item">
+                    <strong>⚠️ Tehlikeli</strong><br>
+                    Sağlık ve çevre tehlikesi oluşturan genel maddeleri gösterir.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Bildirim Konteyneri -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
