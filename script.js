@@ -1,7 +1,25 @@
 /* ============================================================
    GÜVENLİK PROTOKOLÜ: TESİS 42
-   JavaScript Dosyası - Oyun Mantığı (42 Soru Versiyonu)
+   JavaScript Dosyası - Oyun Mantığı (42 Soru Versiyonu + Firebase)
    ============================================================ */
+
+// ========== FIREBASE YAPILANDIRMASI ==========
+// Firebase Realtime Database (Spark Planı - Ücretsiz)
+// CDN Compat versiyonu (global firebase nesnesi)
+
+const firebaseConfig = {
+    apiKey: "AIzaSyAYbW4JXglp5nY41Vr6FI0et90UiaGxOtw",
+    authDomain: "kimya-proje-d2cc9.firebaseapp.com",
+    databaseURL: "https://kimya-proje-d2cc9-default-rtdb.firebaseio.com",
+    projectId: "kimya-proje-d2cc9",
+    storageBucket: "kimya-proje-d2cc9.firebasestorage.app",
+    messagingSenderId: "775750654660",
+    appId: "1:775750654660:web:dbfd5b5021954ddd468791"
+};
+
+// Firebase başlat (CDN Compat tarafından sağlanan global firebase nesnesi)
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
 
 // ========== 42 OYUN SORUSU - KİMYA GÜVENLİĞİ ==========
 
@@ -451,7 +469,6 @@ function saveScore(playerName, completionTime, correctCount, wrongCount) {
         playerName = 'Anonim Oyuncu';
     }
 
-    const leaderboard = loadLeaderboard();
     const totalAnswered = correctCount + wrongCount;
     const successRate = totalAnswered > 0 ? Math.round((correctCount / totalAnswered) * 100) : 0;
 
@@ -464,40 +481,75 @@ function saveScore(playerName, completionTime, correctCount, wrongCount) {
         date: new Date().toLocaleString('tr-TR')
     };
 
-    leaderboard.push(newScore);
-    leaderboard.sort((a, b) => a.time - b.time);
-    const topScores = leaderboard.slice(0, 10);
-
-    localStorage.setItem('leaderboard', JSON.stringify(topScores));
-    displayLeaderboard(topScores);
-
-    showToast('🏆 Skorun leaderboard\'a eklendi!', 'success');
+    // Firebase'e yazı
+    const scoresRef = database.ref('leaderboard');
+    
+    scoresRef.once('value').then((snapshot) => {
+        let scores = snapshot.val() || [];
+        
+        // Array değilse boş array
+        if (!Array.isArray(scores)) {
+            scores = [];
+        }
+        
+        scores.push(newScore);
+        scores.sort((a, b) => a.time - b.time);
+        
+        // En iyi 10 skoru tut (Spark Plan optimizasyonu)
+        if (scores.length > 10) {
+            scores = scores.slice(0, 10);
+        }
+        
+        return scoresRef.set(scores);
+    }).then(() => {
+        showToast('🏆 Skorun leaderboard\'a eklendi!', 'success');
+        displayLeaderboard();
+    }).catch((error) => {
+        console.error('Firebase yazma hatası:', error);
+        showToast('⚠️ Skor kaydedilemedi. Internet bağlantısını kontrol edin.', 'error');
+    });
 }
 
 function loadLeaderboard() {
-    const stored = localStorage.getItem('leaderboard');
-    return stored ? JSON.parse(stored) : [];
+    return new Promise((resolve) => {
+        const scoresRef = database.ref('leaderboard');
+        
+        scoresRef.once('value').then((snapshot) => {
+            const scores = snapshot.val() || [];
+            
+            if (!Array.isArray(scores)) {
+                resolve([]);
+            } else {
+                resolve(scores.sort((a, b) => a.time - b.time));
+            }
+        }).catch((error) => {
+            console.error('Firebase okuma hatası:', error);
+            resolve([]);
+        });
+    });
 }
 
-function displayLeaderboard(scores) {
-    displays.leaderboardBody.innerHTML = '';
+function displayLeaderboard() {
+    loadLeaderboard().then((scores) => {
+        displays.leaderboardBody.innerHTML = '';
 
-    if (scores.length === 0) {
-        displays.leaderboardBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Henüz skor yok. Oyuna başla!</td></tr>';
-        return;
-    }
+        if (scores.length === 0) {
+            displays.leaderboardBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Henüz skor yok. Oyuna başla!</td></tr>';
+            return;
+        }
 
-    scores.forEach((score, index) => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${index + 1}</td>
-            <td>${score.name}</td>
-            <td>${score.time}s</td>
-            <td>${score.correct}</td>
-            <td>${score.wrong}</td>
-            <td>${score.successRate}%</td>
-        `;
-        displays.leaderboardBody.appendChild(row);
+        scores.forEach((score, index) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${index + 1}</td>
+                <td>${score.name}</td>
+                <td>${score.time}s</td>
+                <td>${score.correct}</td>
+                <td>${score.wrong}</td>
+                <td>${score.successRate}%</td>
+            `;
+            displays.leaderboardBody.appendChild(row);
+        });
     });
 }
 
@@ -528,7 +580,7 @@ buttons.reset.addEventListener('click', () => {
 buttons.restart.addEventListener('click', () => {
     screens.gameOver.classList.remove('active');
     screens.start.classList.add('active');
-    displayLeaderboard(loadLeaderboard());
+    displayLeaderboard();
 });
 buttons.closeHelp.addEventListener('click', toggleHelpModal);
 buttons.fifty.addEventListener('click', useFiftyLifeline);
@@ -560,5 +612,5 @@ document.addEventListener('keypress', (e) => {
 // ========== BAŞLANGIÇ ==========
 
 window.addEventListener('load', () => {
-    displayLeaderboard(loadLeaderboard());
+    displayLeaderboard();
 });
