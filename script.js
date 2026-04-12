@@ -421,7 +421,8 @@ function endGame(victory) {
     screens.gameOver.classList.add('active');
 
     const elapsedTime = gameState.totalTime - gameState.timeRemaining;
-    const successRate = gameQuestions.length > 0 ? Math.round((gameState.correctAnswers / gameQuestions.length) * 100) : 0;
+    const totalAnswered = gameState.correctAnswers + gameState.wrongAnswers;
+    const successRate = totalAnswered > 0 ? Math.round((gameState.correctAnswers / totalAnswered) * 100) : 0;
 
     if (victory) {
         displays.gameOverMessage.textContent = `✅ TESİSİ BAŞARIYLA TAHLIYE ETTİNİZ!\n\nTesis 42'den güvenli bir şekilde çıktınız.\nTüm kimyasal tehlikeleri başarıyla aştınız!`;
@@ -451,7 +452,8 @@ function saveScore(playerName, completionTime, correctCount, wrongCount) {
     }
 
     const leaderboard = loadLeaderboard();
-    const successRate = Math.round((correctCount / gameQuestions.length) * 100);
+    const totalAnswered = correctCount + wrongCount;
+    const successRate = totalAnswered > 0 ? Math.round((correctCount / totalAnswered) * 100) : 0;
 
     const newScore = {
         name: playerName,
