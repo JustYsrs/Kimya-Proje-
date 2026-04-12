@@ -22,7 +22,7 @@ firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
 // ========== 42 OYUN SORUSU - KİMYA GÜVENLİĞİ ==========
-
+// İlk 41 soru (shuffle yapılacak)
 const gameQuestions = [
     { id: 1, tehlikeMetni: "Yerde fokurdayan ve metali eriten bir sıvı var! Koyu renkte. Cildimize değerse şiddetli yanık yapar.", hazardEmoji: "🧪", dogruPiktogram: "Korozif (Aşındırıcı)", yanlisPiktogramlar: ["Yanıcı", "Toksik/Zehirli"], dogruEkipman: "Aside dayanıklı eldiven", yanlisEkipmanlar: ["Koruyucu gözlük", "Solunum cihazı"] },
     { id: 2, tehlikeMetni: "Masa üzerinde açık bir benzin bidonunun yanında bir ateş kaynağı var. Alevler her an tutuşabilir!", hazardEmoji: "🔥", dogruPiktogram: "Yanıcı", yanlisPiktogramlar: ["Korozif (Aşındırıcı)", "Radyoaktif"], dogruEkipman: "Yangın söndürücü", yanlisEkipmanlar: ["Eldiven", "Maske"] },
@@ -64,9 +64,11 @@ const gameQuestions = [
     { id: 38, tehlikeMetni: "Sianür tuzu tozu var! Gastrointestinal absorpsiyon hızlı ve ölümcül!", hazardEmoji: "☠️", dogruPiktogram: "Toksik/Zehirli", yanlisPiktogramlar: ["Yanıcı", "Patlayıcı"], dogruEkipman: "Sianür-antidotlu maskesi", yanlisEkipmanlar: ["Eldiven", "Gözlük"] },
     { id: 39, tehlikeMetni: "Technetium-99m koleksiyonu! Meta stabil izotop. Kontaminasyon var!", hazardEmoji: "☢️", dogruPiktogram: "Radyoaktif", yanlisPiktogramlar: ["Korozif", "Toksik/Zehirli"], dogruEkipman: "Kurşun şort pantalonlu terlik", yanlisEkipmanlar: ["Maske", "Eldiven"] },
     { id: 40, tehlikeMetni: "Pikrinik asidi kristalli hale çekti! Hafif şok'a cevap verir. İstikrarsız!", hazardEmoji: "💥", dogruPiktogram: "Patlayıcı", yanlisPiktogramlar: ["Yanıcı", "Korozif"], dogruEkipman: "Ağır kaskı", yanlisEkipmanlar: ["Eldiven", "Maske"] },
-    { id: 41, tehlikeMetni: "Isı değiştiricinin sigortası defektif! Başlangıç malzemesi bulunmuş. Piktogramı görülmüyor!", hazardEmoji: "⚠️", dogruPiktogram: "Tehlikeli", yanlisPiktogramlar: ["Yanıcı", "Korozif"], dogruEkipman: "Genel koruma eldiveni", yanlisEkipmanlar: ["Kask", "Gözlük"] },
-    { id: 42, tehlikeMetni: "SON ODA! Ana kontrol merkezi. Tüm tehlikelerin merkezi. Tesis 42'nin kapısını aç!", hazardEmoji: "🏆", dogruPiktogram: "Tehlikeli", yanlisPiktogramlar: ["Yanıcı", "Korozif"], dogruEkipman: "Tam koruma elbisesi", yanlisEkipmanlar: ["Eldiven", "Maske"] }
+    { id: 41, tehlikeMetni: "Isı değiştiricinin sigortası defektif! Başlangıç malzemesi bulunmuş. Piktogramı görülmüyor!", hazardEmoji: "⚠️", dogruPiktogram: "Tehlikeli", yanlisPiktogramlar: ["Yanıcı", "Korozif"], dogruEkipman: "Genel koruma eldiveni", yanlisEkipmanlar: ["Kask", "Gözlük"] }
 ];
+
+// SON ODA - HER ZAMAN 42. SORU OLARAK KALACAK
+const finalBossQuestion = { id: 42, tehlikeMetni: "SON ODA! Ana kontrol merkezi. Tüm tehlikelerin merkezi. Tesis 42'nin kapısını aç!", hazardEmoji: "🏆", dogruPiktogram: "Tehlikeli", yanlisPiktogramlar: ["Yanıcı", "Korozif"], dogruEkipman: "Tam koruma elbisesi", yanlisEkipmanlar: ["Eldiven", "Maske"] };
 
 // ========== OYUN DURUMU ==========
 
@@ -86,7 +88,8 @@ const gameState = {
     isFrozen: false,
     frozenTimeoutId: null,
     correctAnswers: 0,
-    wrongAnswers: 0
+    wrongAnswers: 0,
+    activeQuestions: [] // Şu anki oyun oturumu için sorular
 };
 
 // ========== DOM ELEMANLARI ==========
@@ -156,7 +159,10 @@ function startGame() {
     buttons.freeze.style.opacity = '1';
     buttons.freeze.style.cursor = 'pointer';
 
-    shuffleArray(gameQuestions);
+    // Bu oyun oturumunun sorularını hazırla: İlk 41 karışık + SON ODA sonda
+    gameState.activeQuestions = [...gameQuestions.slice(0, 41)];
+    shuffleArray(gameState.activeQuestions);
+    gameState.activeQuestions.push(finalBossQuestion);
 
     screens.start.classList.remove('active');
     screens.gameOver.classList.remove('active');
@@ -169,12 +175,12 @@ function startGame() {
 // ========== SORU YÜKLEME ==========
 
 function loadQuestion() {
-    if (gameState.currentRoomIndex >= gameQuestions.length) {
+    if (gameState.currentRoomIndex >= gameState.activeQuestions.length) {
         endGame(true);
         return;
     }
 
-    const question = gameQuestions[gameState.currentRoomIndex];
+    const question = gameState.activeQuestions[gameState.currentRoomIndex];
 
     displays.question.textContent = question.tehlikeMetni;
     displays.hazardEmoji.textContent = question.hazardEmoji;
@@ -324,7 +330,7 @@ function updateHUD() {
     }
     displays.hearts.textContent = heartsDisplay || '❌ YOK';
 
-    displays.questionCount.textContent = `${gameState.currentRoomIndex + 1}/${gameQuestions.length}`;
+    displays.questionCount.textContent = `${gameState.currentRoomIndex + 1}/${gameState.activeQuestions.length}`;
 
     displays.timer.textContent = `${gameState.timeRemaining}s`;
 
@@ -340,7 +346,7 @@ function updateHUD() {
 }
 
 function updateProgressBar() {
-    const progress = ((gameState.currentRoomIndex + 1) / gameQuestions.length) * 100;
+    const progress = ((gameState.currentRoomIndex + 1) / gameState.activeQuestions.length) * 100;
     displays.progressBar.style.width = progress + '%';
 }
 
